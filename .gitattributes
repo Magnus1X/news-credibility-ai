@@ -1,1 +1,2 @@
 data/raw/WELFake_Dataset.csv filter=lfs diff=lfs merge=lfs -text
+data/processed/cleaned_news.csv filter=lfs diff=lfs merge=lfs -text
