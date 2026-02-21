@@ -16,3 +16,6 @@ __pycache__/
 
 # Model files (optional later)
 models/*.pkl
+
+# Processed Data
+data/processed/
