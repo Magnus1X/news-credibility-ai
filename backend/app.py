@@ -138,10 +138,10 @@ def predict_news(request: NewsRequest):
     # Step 6: Label Mapping (Adjust if needed)
     # ---------------------------
     # IMPORTANT: Confirm your dataset label mapping
-    # 0 = Real, 1 = Fake (based on training notebook)
+    # 1 = Real, 0 = Fake (based on training notebook)
     label_map = {
-        0: "Real News",
-        1: "Fake News"
+        1: "Real News",
+        0: "Fake News"
     }
 
     predicted_label = label_map.get(int(prediction), str(prediction))
