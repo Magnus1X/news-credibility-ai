@@ -1,6 +1,7 @@
 # app.py
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
 import numpy as np
@@ -16,6 +17,14 @@ app = FastAPI(
     title="AI News Credibility Analysis API",
     description="API for classifying news articles as Real or Fake using ML + NLP",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ---------------------------
@@ -129,10 +138,10 @@ def predict_news(request: NewsRequest):
     # Step 6: Label Mapping (Adjust if needed)
     # ---------------------------
     # IMPORTANT: Confirm your dataset label mapping
-    # Example: 0 = Fake, 1 = Real (common in WELFake)
+    # 0 = Real, 1 = Fake (based on training notebook)
     label_map = {
-        0: "Fake News",
-        1: "Real News"
+        0: "Real News",
+        1: "Fake News"
     }
 
     predicted_label = label_map.get(int(prediction), str(prediction))
