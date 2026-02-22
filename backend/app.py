@@ -7,8 +7,8 @@ import joblib
 import numpy as np
 import os
 
-from scraper import extract_text_from_url
-from preprocessing import preprocess_text, validate_input_text
+from backend.scraper import extract_text_from_url
+from backend.preprocessing import preprocess_text, validate_input_text
 
 # ---------------------------
 # Initialize FastAPI App
@@ -34,6 +34,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
 VECTORIZER_PATH = os.path.join(BASE_DIR, "vectorizer.pkl")
+print("Loaded model from:", os.path.abspath(MODEL_PATH))
+print("Loaded vectorizer from:", os.path.abspath(VECTORIZER_PATH))
 
 try:
     model = joblib.load(MODEL_PATH)

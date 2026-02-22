@@ -2,146 +2,61 @@ import re
 import nltk
 from typing import List
 from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 
-# Ensure stopwords are available (first-time setup safe)
+# Ensure required NLTK resources
 try:
-    STOP_WORDS = set(stopwords.words("english"))
+    stop_words = set(stopwords.words("english"))
+    nltk.data.find("tokenizers/punkt")
 except LookupError:
+    nltk.download("punkt")
     nltk.download("stopwords")
-    STOP_WORDS = set(stopwords.words("english"))
-
-
-def basic_clean(text: str) -> str:
-    """
-    Perform basic cleaning:
-    - Lowercasing
-    - Remove URLs
-    - Remove HTML tags
-    - Remove special characters & numbers
-    - Normalize whitespace
-    """
-    if not isinstance(text, str):
-        return ""
-
-    # Lowercase
-    text = text.lower()
-
-    # Remove URLs
-    text = re.sub(r"http\S+|www\S+|https\S+", " ", text)
-
-    # Remove HTML tags
-    text = re.sub(r"<.*?>", " ", text)
-
-    # Remove non-alphabetic characters (keep only letters)
-    text = re.sub(r"[^a-zA-Z\s]", " ", text)
-
-    # Remove extra whitespace
-    text = re.sub(r"\s+", " ", text).strip()
-
-    return text
-
-
-def remove_stopwords(text: str) -> str:
-    """
-    Remove common English stopwords.
-    Helps TF-IDF focus on meaningful words.
-    """
-    if not text:
-        return ""
-
-    words = text.split()
-    filtered_words = [word for word in words if word not in STOP_WORDS]
-
-    return " ".join(filtered_words)
-
-
-def remove_leakage_words(text: str) -> str:
-    """
-    Remove common publisher names and boilerplate text that causes data leakage.
-    (e.g., 'Reuters', 'Getty Images', 'Featured Image')
-    """
-    if not text:
-        return ""
-
-    # Common words the model memorized as "Real" or "Fake" solely based on publishers
-    leakage_words = [
-        r'reuters', r'washington reuters', r'getty', r'getty images', 
-        r'image', r'featured image', r'featured', r'twitter', r'twitter com', 
-        r'breitbart', r'pic twitter', r'said', r'mr', r'ms'
-    ]
-    
-    # Strip (Reuters) or (AP) prefixes often found at the beginning of real articles
-    text = re.sub(r'^.*?\((reuters|ap)\).*?-', '', text, flags=re.IGNORECASE)
-
-    for word in leakage_words:
-        # Remove these exact leakage words as whole words
-        text = re.sub(fr'\b{word}\b', '', text, flags=re.IGNORECASE)
-
-    return re.sub(r"\s+", " ", text).strip()
+    stop_words = set(stopwords.words("english"))
 
 
 def preprocess_text(text: str) -> str:
     """
-    Main preprocessing pipeline (MUST match training preprocessing).
-    
-    Steps:
-    1. Basic cleaning
-    2. Stopword removal
-    3. Leakage word removal
-    
-    Returns:
-        Cleaned text ready for TF-IDF vectorization
+    Preprocessing that EXACTLY matches training notebook pipeline:
+    1. Lowercase
+    2. Remove punctuation & special characters
+    3. Remove extra whitespace
+    4. Tokenize using word_tokenize (NOT split)
+    5. Remove stopwords
     """
     if not text or not isinstance(text, str):
         return ""
 
-    # Step 1: Basic cleaning
-    text = basic_clean(text)
+    # Step 1: Lowercase (matches notebook)
+    text = text.lower()
 
-    # Step 2: Remove stopwords
-    text = remove_stopwords(text)
+    # Step 2: Remove punctuation & special characters (same regex as notebook)
+    text = re.sub(r"[^a-zA-Z\s]", " ", text)
 
-    # Step 3: Remove Target Leakage Words
-    text = remove_leakage_words(text)
+    # Step 3: Remove extra spaces
+    text = re.sub(r"\s+", " ", text).strip()
 
-    return text
+    if not text:
+        return ""
+
+    # Step 4: Tokenization (CRITICAL - match training)
+    tokens = word_tokenize(text)
+
+    # Step 5: Stopword removal (same logic as notebook)
+    filtered_tokens = [word for word in tokens if word not in stop_words]
+
+    # Join back to string (TF-IDF expects string)
+    cleaned_text = " ".join(filtered_tokens)
+
+    return cleaned_text
 
 
-def combine_title_content(title: str, content: str) -> str:
+def validate_input_text(text: str, min_length: int = 50) -> bool:
     """
-    Combine title and content (important for fake news detection).
-    Use this if your dataset used title + content during training.
-    """
-    title = title if isinstance(title, str) else ""
-    content = content if isinstance(content, str) else ""
-
-    combined = f"{title} {content}".strip()
-    return combined
-
-
-def preprocess_batch(texts: List[str]) -> List[str]:
-    """
-    Preprocess a list of texts (useful for batch predictions).
-    """
-    if not texts:
-        return []
-
-    return [preprocess_text(text) for text in texts]
-
-
-def validate_input_text(text: str, min_length: int = 20) -> bool:
-    """
-    Validate if input text is suitable for prediction.
-    
-    Prevents:
-    - Empty inputs
-    - Extremely short inputs
-    - Garbage text
+    Increased min length because model trained on long articles.
     """
     if not text or not isinstance(text, str):
         return False
 
-    # Remove spaces and check length
     if len(text.strip()) < min_length:
         return False
 

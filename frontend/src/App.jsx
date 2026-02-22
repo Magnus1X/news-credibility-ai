@@ -39,7 +39,7 @@ export default function App() {
       const isUrl = inputValue.startsWith('http');
       const payload = isUrl ? { url: inputValue } : { text: inputValue };
 
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
       const response = await axios.post(`${API_BASE_URL}/predict`, payload);
 
       // Artificial delay to ensure steps finish nicely
