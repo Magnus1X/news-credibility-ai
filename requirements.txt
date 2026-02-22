@@ -13,3 +13,11 @@ transformers
 torch
 accelerate
 huggingface-hub
+
+# API Dependencies
+fastapi
+uvicorn
+newspaper3k
+requests
+pydantic
+lxml_html_clean

@@ -55,6 +55,31 @@ def remove_stopwords(text: str) -> str:
     return " ".join(filtered_words)
 
 
+def remove_leakage_words(text: str) -> str:
+    """
+    Remove common publisher names and boilerplate text that causes data leakage.
+    (e.g., 'Reuters', 'Getty Images', 'Featured Image')
+    """
+    if not text:
+        return ""
+
+    # Common words the model memorized as "Real" or "Fake" solely based on publishers
+    leakage_words = [
+        r'reuters', r'washington reuters', r'getty', r'getty images', 
+        r'image', r'featured image', r'featured', r'twitter', r'twitter com', 
+        r'breitbart', r'pic twitter', r'said', r'mr', r'ms'
+    ]
+    
+    # Strip (Reuters) or (AP) prefixes often found at the beginning of real articles
+    text = re.sub(r'^.*?\((reuters|ap)\).*?-', '', text, flags=re.IGNORECASE)
+
+    for word in leakage_words:
+        # Remove these exact leakage words as whole words
+        text = re.sub(fr'\b{word}\b', '', text, flags=re.IGNORECASE)
+
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def preprocess_text(text: str) -> str:
     """
     Main preprocessing pipeline (MUST match training preprocessing).
@@ -62,6 +87,7 @@ def preprocess_text(text: str) -> str:
     Steps:
     1. Basic cleaning
     2. Stopword removal
+    3. Leakage word removal
     
     Returns:
         Cleaned text ready for TF-IDF vectorization
@@ -74,6 +100,9 @@ def preprocess_text(text: str) -> str:
 
     # Step 2: Remove stopwords
     text = remove_stopwords(text)
+
+    # Step 3: Remove Target Leakage Words
+    text = remove_leakage_words(text)
 
     return text
 
