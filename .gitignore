@@ -18,7 +18,5 @@ __pycache__/
 artifacts/
 
 # Backend Models
-backend/*.pkl
-
 # Datasets
 data/
