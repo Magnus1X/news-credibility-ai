@@ -14,7 +14,11 @@ __pycache__/
 # Streamlit
 .streamlit/
 
-# Model files (optional later)
-models/*.pkl
+# Agent Artifacts
+artifacts/
 
+# Backend Models
+backend/*.pkl
 
+# Datasets
+data/
