@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { Search, BrainCircuit, CheckCircle2, CircleDashed, Loader2, Info } from 'lucide-react';
 import './index.css';
