@@ -7,8 +7,8 @@ import joblib
 import numpy as np
 import os
 
-from backend.scraper import extract_text_from_url
-from backend.preprocessing import preprocess_text, validate_input_text
+from scraper import extract_text_from_url
+from preprocessing import preprocess_text, validate_input_text
 
 # ---------------------------
 # Initialize FastAPI App
@@ -19,9 +19,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# CORS (for Vite React frontend)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,6 +38,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
 VECTORIZER_PATH = os.path.join(BASE_DIR, "vectorizer.pkl")
+
 print("Loaded model from:", os.path.abspath(MODEL_PATH))
 print("Loaded vectorizer from:", os.path.abspath(VECTORIZER_PATH))
 
@@ -74,88 +79,96 @@ def predict_news(request: NewsRequest):
     - Direct text input OR
     - URL input (auto-scraped)
     """
+    try:
+        user_text = request.text.strip() if request.text else ""
+        user_url = request.url.strip() if request.url else ""
 
-    user_text = request.text.strip() if request.text else ""
-    user_url = request.url.strip() if request.url else ""
+        # ---------------------------
+        # Step 1: Get Text (URL or Direct)
+        # ---------------------------
+        if user_url:
+            extracted_text = extract_text_from_url(user_url)
 
-    # ---------------------------
-    # Step 1: Get Text (URL or Direct)
-    # ---------------------------
-    if user_url:
-        extracted_text = extract_text_from_url(user_url)
+            if not extracted_text:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Unable to extract valid article content from the provided URL."
+                )
 
-        if not extracted_text:
+            raw_text = extracted_text
+            source = "url"
+
+        elif user_text:
+            raw_text = user_text
+            source = "text"
+
+        else:
             raise HTTPException(
                 status_code=400,
-                detail="Unable to extract valid article content from the provided URL."
+                detail="Please provide either news text or a valid URL."
             )
 
-        raw_text = extracted_text
-        source = "url"
+        # ---------------------------
+        # Step 2: Validate Input Length
+        # ---------------------------
+        if not validate_input_text(raw_text):
+            raise HTTPException(
+                status_code=400,
+                detail="Input text is too short or invalid for analysis."
+            )
 
-    elif user_text:
-        raw_text = user_text
-        source = "text"
+        # ---------------------------
+        # Step 3: Preprocess Text (SAME as training pipeline)
+        # ---------------------------
+        cleaned_text = preprocess_text(raw_text)
+        print(cleaned_text)
+        if not cleaned_text:
+            raise HTTPException(
+                status_code=400,
+                detail="Text preprocessing resulted in empty content."
+            )
 
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Please provide either news text or a valid URL."
-        )
+        # ---------------------------
+        # Step 4: Vectorize using SAVED TF-IDF
+        # ---------------------------
+        vector = vectorizer.transform([cleaned_text])
+        print(vector)
+        # ---------------------------
+        # Step 5: Model Prediction (FIXED ORDER)
+        # ---------------------------
+        prediction = model.predict(vector)[0]
+        probabilities = model.predict_proba(vector)[0]
+        confidence = float(np.max(probabilities))
 
-    # ---------------------------
-    # Step 2: Validate Input Length
-    # ---------------------------
-    if not validate_input_text(raw_text):
-        raise HTTPException(
-            status_code=400,
-            detail="Input text is too short or invalid for analysis."
-        )
+        # Debug logs (safe now)
+        print("Raw prediction:", prediction)
+        print("Probabilities:", probabilities)
+        print("Confidence:", confidence)
 
-    # ---------------------------
-    # Step 3: Preprocess Text (SAME as training pipeline)
-    # ---------------------------
-    cleaned_text = preprocess_text(raw_text)
+        # ---------------------------
+        # Step 6: Label Mapping
+        # ---------------------------
+        label_map = {
+            0: "Real News",
+            1: "Fake News"
+        }
 
-    if not cleaned_text:
-        raise HTTPException(
-            status_code=400,
-            detail="Text preprocessing resulted in empty content."
-        )
+        predicted_label = label_map.get(int(prediction), str(prediction))
 
-    # ---------------------------
-    # Step 4: Vectorize using SAVED TF-IDF
-    # (CRITICAL: use transform, NOT fit_transform)
-    # ---------------------------
-    vector = vectorizer.transform([cleaned_text])
+        # ---------------------------
+        # Step 7: Response (Frontend uses this)
+        # ---------------------------
+        return {
+            "status": "success",
+            "prediction": predicted_label,
+            "confidence_score": round(confidence * 100, 2),
+            "input_source": source,
+            "text_length": len(raw_text),
+            "message": "Credibility analysis completed successfully."
+        }
 
-    # ---------------------------
-    # Step 5: Model Prediction
-    # ---------------------------
-    prediction = model.predict(vector)[0]
-    probabilities = model.predict_proba(vector)[0]
-    confidence = float(np.max(probabilities))
-
-    # ---------------------------
-    # Step 6: Label Mapping (Adjust if needed)
-    # ---------------------------
-    # IMPORTANT: Confirm your dataset label mapping
-    # 1 = Real, 0 = Fake (based on training notebook)
-    label_map = {
-        1: "Real News",
-        0: "Fake News"
-    }
-
-    predicted_label = label_map.get(int(prediction), str(prediction))
-
-    # ---------------------------
-    # Step 7: Response (Frontend will use this)
-    # ---------------------------
-    return {
-        "status": "success",
-        "prediction": predicted_label,
-        "confidence_score": round(confidence * 100, 2),
-        "input_source": source,
-        "text_length": len(raw_text),
-        "message": "Credibility analysis completed successfully."
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("🔥 INTERNAL SERVER ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
