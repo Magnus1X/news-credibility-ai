@@ -10,17 +10,18 @@ import re
 import requests
 from datetime import datetime
 
-HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+HF_API_URL = "https://api-inference.huggingface.co/models/NousResearch/Hermes-3-Llama-3.1-8B"
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 
 SYSTEM_PROMPT = """You are a professional fact-checking analyst. Your job is to produce a structured credibility report.
 
 STRICT RULES:
-1. NEVER fabricate facts, quotes, or sources not provided to you.
-2. If evidence is insufficient, write "Insufficient evidence to determine."
-3. Clearly separate FACTS (from the data provided) from ASSESSMENTS (your analysis).
-4. Use chain-of-thought reasoning internally, but output only structured JSON.
-5. Do not hallucinate URLs, author names, or publication dates.
+1. Use PLAIN ENGLISH. Avoid academic jargon. Make insights easy for a high-schooler to understand.
+2. NEVER fabricate facts, quotes, or sources not provided to you.
+3. If evidence is insufficient, write "Insufficient evidence to determine."
+4. Clearly separate FACTS (from the data provided) from ASSESSMENTS (your analysis).
+5. Ensure the "Summary" provides a meaningful "bottom line" for the user.
+6. Do not hallucinate URLs, author names, or publication dates.
 """
 
 REPORT_PROMPT_TEMPLATE = """
@@ -171,39 +172,68 @@ def _rule_based_report(state: dict) -> dict:
     }
 
 
-def run_agent(raw_text: str, prediction: dict, risk_analysis: dict, retrieved_docs: list) -> dict:
+def run_agent(raw_text: str, prediction: dict, risk_analysis: dict, initial_docs: list) -> dict:
     """
-    5-step agentic reasoning pipeline.
-    State is passed explicitly between steps.
+    Agentic reasoning pipeline.
+    State is passed explicitly between steps with conditional logic.
     """
+    from .retriever import retrieve  # Local import to avoid circular dependencies
+
     state = {
         "raw_text": raw_text,
         "prediction": prediction,
         "risk_analysis": risk_analysis,
-        "retrieved_docs": retrieved_docs,
+        "retrieved_docs": initial_docs,
         "steps_completed": [],
         "report": None,
         "used_llm": False,
+        "performed_deep_scan": False,
+        "agent_reasoning": [],
         "timestamp": datetime.utcnow().isoformat() + "Z",
     }
 
     # Step 1: Interpret model output
     state["steps_completed"].append("step1_model_interpretation")
+    state["agent_reasoning"].append(f"Model predicted {prediction['label']} with {prediction['confidence']}% confidence.")
 
-    # Step 2: Analyze risk factors
-    state["steps_completed"].append("step2_risk_analysis")
+    # Step 2: Risk-Based Branching (Decision Node)
+    # IF confidence is low OR risk score is extremely high, expand the search.
+    if prediction["confidence_tier"] == "low" or risk_analysis["risk_score"] > 80:
+        state["agent_reasoning"].append("CRITICAL: Low confidence or high risk detected. Initiating Deep Scan.")
+        
+        # Refine query based on top TF-IDF features for better retrieval
+        top_features = " ".join(prediction.get("top_features", [])[:3])
+        deep_scan_query = f"{raw_text[:100]} {top_features}"
+        
+        additional_docs = retrieve(deep_scan_query, top_k=2)
+        
+        # Merge unique docs
+        existing_ids = {d["id"] for d in state["retrieved_docs"]}
+        for doc in additional_docs:
+            if doc["id"] not in existing_ids:
+                state["retrieved_docs"].append(doc)
+        
+        state["performed_deep_scan"] = True
+        state["steps_completed"].append("step2_deep_scan")
+    else:
+        state["agent_reasoning"].append("Normal confidence level. Proceeding with standard analysis.")
 
-    # Step 3: Cross-check retrieved data
+    # Step 3: Analysis of Risk Factors
+    state["steps_completed"].append("step3_risk_analysis")
+
+    # Step 4: Cross-check retrieved data
     retrieved_context = "\n".join(
         f"[{d['source']}] {d['title']}: {d['content'][:200]}"
-        for d in retrieved_docs
+        for d in state["retrieved_docs"]
     ) or "No relevant documents retrieved."
-    state["steps_completed"].append("step3_cross_check")
+    state["steps_completed"].append("step4_cross_check")
 
-    # Step 4: Evaluate uncertainty
-    state["steps_completed"].append("step4_uncertainty_evaluation")
-
-    # Step 5: Generate structured report
+    # Step 5: Evaluate uncertainty & Generate structured report
+    state["steps_completed"].append("step5_uncertainty_evaluation")
+    
+    # Update prompt to inform LLM about the deep scan
+    final_reasoning = "\n".join([f"- {r}" for r in state["agent_reasoning"]])
+    
     prompt = REPORT_PROMPT_TEMPLATE.format(
         system_prompt=SYSTEM_PROMPT,
         article_excerpt=raw_text[:500].replace("{", "(").replace("}", ")"),
@@ -212,11 +242,11 @@ def run_agent(raw_text: str, prediction: dict, risk_analysis: dict, retrieved_do
         confidence_tier=prediction["confidence_tier"],
         real_prob=prediction["real_probability"],
         fake_prob=prediction["fake_probability"],
-        top_features=", ".join(prediction["top_features"][:8]),
+        top_features=", ".join(prediction.get("top_features", [])[:8]),
         risk_score=risk_analysis["risk_score"],
         risk_factors="; ".join(risk_analysis["risk_factors"]) or "None detected",
         credibility_indicators="; ".join(risk_analysis["credibility_indicators"]) or "None detected",
-        retrieved_context=retrieved_context,
+        retrieved_context=retrieved_context + f"\n\nAGENT REASONING PATH:\n{final_reasoning}",
     )
 
     llm_output = _call_hf_api(prompt)
@@ -229,5 +259,5 @@ def run_agent(raw_text: str, prediction: dict, risk_analysis: dict, retrieved_do
     if state["report"] is None:
         state["report"] = _rule_based_report(state)
 
-    state["steps_completed"].append("step5_report_generation")
+    state["steps_completed"].append("step6_report_generation")
     return state
