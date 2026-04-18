@@ -20,12 +20,18 @@ from pydantic import BaseModel
 import io
 
 from scraper import extract_text_from_url
-from preprocessing import validate_input_text
+from preprocessing import validate_input_text, preprocess_text
 from agent.predictor import predict
 from agent.risk_analyzer import analyze_risk
 from agent.retriever import retrieve
 from agent.llm_agent import run_agent
 from agent.pdf_exporter import export_pdf
+import joblib
+import numpy as np
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_model = joblib.load(os.path.join(BASE_DIR, "model.pkl"))
+_vectorizer = joblib.load(os.path.join(BASE_DIR, "vectorizer.pkl"))
 
 app = FastAPI(
     title="News Credibility Agentic AI API",
@@ -35,7 +41,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://news-credibility-ai.vercel.app",
+        "https://*.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -93,9 +104,74 @@ def _run_pipeline(raw_text: str) -> dict:
     return state
 
 
+@app.get("/")
+def home():
+    return {"message": "News Credibility Analysis API is running", "status": "healthy", "version": "2.0.0"}
+
+
 @app.get("/agent/health")
 def health():
     return {"status": "healthy", "milestone": 2, "version": "2.0.0"}
+
+
+@app.post("/predict")
+def predict_news(request: AnalyzeRequest):
+    """Milestone 1 — fast single-model prediction."""
+    import re as _re
+    try:
+        user_text = request.text.strip()
+        user_url = request.url.strip()
+
+        if user_url:
+            raw_text = extract_text_from_url(user_url)
+            if not raw_text:
+                raise HTTPException(400, "Unable to extract article content from URL.")
+            source = "url"
+        elif user_text:
+            url_match = _re.search(r'https?://[^\s]+', user_text)
+            if url_match:
+                extracted = extract_text_from_url(url_match.group(0).rstrip(')'))
+                if extracted and len(extracted.split()) >= 80:
+                    raw_text, source = extracted, "url"
+                else:
+                    raw_text, source = user_text, "text"
+            else:
+                raw_text, source = user_text, "text"
+        else:
+            raise HTTPException(400, "Provide either text or url.")
+
+        if not validate_input_text(raw_text):
+            raise HTTPException(400, "Input text is too short.")
+
+        cleaned = preprocess_text(raw_text)
+        vector = _vectorizer.transform([cleaned])
+        pred_int = int(_model.predict(vector)[0])
+        probs = _model.predict_proba(vector)[0]
+        confidence = float(np.max(probs))
+        label = "Real News" if pred_int == 0 else "Fake News"
+
+        from agent.risk_analyzer import analyze_risk
+        risk = analyze_risk(raw_text)
+        uncertain = confidence < 0.80 or (
+            label == "Fake News" and risk["credibility_hits"] >= 2 and risk["risk_score"] <= 20
+        )
+        word_count = len(raw_text.split())
+
+        return {
+            "status": "success",
+            "prediction": label,
+            "confidence_score": round(confidence * 100, 2),
+            "input_source": source,
+            "text_length": len(raw_text),
+            "word_count": word_count,
+            "reliable": word_count >= 80,
+            "uncertain": uncertain,
+            "message": "Credibility analysis completed successfully." if word_count >= 80 else f"Short input ({word_count} words) — results may be unreliable."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 
 @app.post("/analyze")

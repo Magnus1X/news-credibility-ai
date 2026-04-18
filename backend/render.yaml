@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: news-ai-backend
+    name: news-credibility-ai
     env: python
     buildCommand: "pip install -r requirements.txt && python -c 'from agent.retriever import build_index; build_index()'"
     startCommand: "uvicorn backend.agent_app:app --host 0.0.0.0 --port $PORT"
