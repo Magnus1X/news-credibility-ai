@@ -72,12 +72,11 @@ def home():
 # Main Prediction Endpoint
 # ---------------------------
 @app.post("/predict")
+@app.post("/analyze")
 def predict_news(request: NewsRequest):
     """
     Predict whether a news article is Real or Fake
-    based on:
-    - Direct text input OR
-    - URL input (auto-scraped)
+    using the full ML + Agentic logic.
     """
     try:
         user_text = request.text.strip() if request.text else ""
@@ -167,40 +166,72 @@ def predict_news(request: NewsRequest):
         predicted_label = label_map.get(int(prediction), str(prediction))
 
         # ---------------------------
-        # Step 7: Uncertain check (model confidence + heuristic override)
+        # Step 7: Agentic AI Reasoning (Milestone 2)
         # ---------------------------
         from agent.risk_analyzer import analyze_risk
+        from agent.retriever import retrieve
+        from agent.llm_agent import run_agent
+
+        # A. Risk Analysis
         risk = analyze_risk(raw_text)
-        credibility_hits = risk.get("credibility_hits", 0)
-        risk_score = risk.get("risk_score", 0)
-        uncertain = confidence < 0.80
-        # Override: if model says Fake but heuristics show credible content → uncertain
-        if predicted_label == "Fake News" and credibility_hits >= 2 and risk_score <= 20:
-            uncertain = True
+
+        # B. Semantic Retrieval (RAG)
+        # Use a combination of prediction and original text for a robust query
+        retrieval_query = f"{predicted_label}: {raw_text[:200]}"
+        retrieved_docs = retrieve(retrieval_query, top_k=3)
+
+        # C. Run Agent Reasoning Pipeline
+        # Map prediction to agent format
+        prediction_data = {
+            "label": predicted_label,
+            "confidence": round(confidence * 100, 2),
+            "confidence_tier": "high" if confidence > 0.85 else "medium" if confidence > 0.65 else "low",
+            "real_probability": round(probabilities[0] * 100, 2),
+            "fake_probability": round(probabilities[1] * 100, 2),
+            "top_features": [vectorizer.get_feature_names_out()[i] for i in vector.toarray().argsort()[0][-10:][::-1]]
+        }
+
+        agent_state = run_agent(raw_text, prediction_data, risk, retrieved_docs)
 
         # ---------------------------
-        # Step 7: Response (Frontend uses this)
+        # Step 8: Response (Strictly Aligned with Frontend)
         # ---------------------------
         word_count = len(raw_text.split())
-        if word_count < 80:
-            message = (
-                f"⚠️ Short input ({word_count} words). "
-                "This model was trained on full-length news articles (typically 200+ words). "
-                "Results for short text may be unreliable — paste the full article for best accuracy."
-            )
-        else:
-            message = "Credibility analysis completed successfully."
-
         return {
             "status": "success",
-            "prediction": predicted_label,
-            "confidence_score": round(confidence * 100, 2),
             "input_source": source,
             "text_length": len(raw_text),
             "word_count": word_count,
             "reliable": word_count >= 80,
-            "uncertain": uncertain,
-            "message": message
+            "uncertain": prediction_data["confidence"] < 70,
+            
+            # Milestone 1 & 2 shared prediction data
+            "prediction": {
+                "label": predicted_label,
+                "confidence": prediction_data["confidence"],
+                "confidence_tier": prediction_data["confidence_tier"],
+                "real_probability": prediction_data["real_probability"],
+                "fake_probability": prediction_data["fake_probability"],
+                "top_features": prediction_data["top_features"]
+            },
+
+            # Milestone 2 specific agent data
+            "risk_analysis": {
+                "risk_score": risk["risk_score"],
+                "risk_factors": risk["risk_factors"],
+                "credibility_indicators": risk["credibility_indicators"]
+            },
+            "report": agent_state["report"],
+            "retrieved_sources": [
+                {
+                    "source": d["source"],
+                    "title": d["title"],
+                    "relevance": d.get("relevance_score", 1.0)
+                } for d in agent_state["retrieved_docs"]
+            ],
+            "pipeline_steps": agent_state["steps_completed"],
+            "used_llm": agent_state["used_llm"],
+            "message": "Full agentic credibility assessment completed."
         }
 
     except HTTPException:
@@ -208,3 +239,35 @@ def predict_news(request: NewsRequest):
     except Exception as e:
         print("🔥 INTERNAL SERVER ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------
+# PDF Export Endpoint (Extension)
+# ---------------------------
+class ExportRequest(BaseModel):
+    title: str = "News Analysis Report"
+    report_data: dict
+    prediction: str
+    confidence: float
+
+@app.post("/analyze/pdf")
+def export_pdf(request: ExportRequest):
+    """Generates a PDF report and returns the file path/binary."""
+    from agent.pdf_exporter import generate_report_pdf
+    try:
+        filename = f"report_{request.prediction.replace(' ', '_')}.pdf"
+        output_path = os.path.join(BASE_DIR, "exports", filename)
+        
+        # Ensure exports directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        generate_report_pdf(request.dict(), output_path)
+        
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            path=output_path, 
+            filename=filename,
+            media_type='application/pdf'
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF Generation failed: {str(e)}")
