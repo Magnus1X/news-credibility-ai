@@ -129,3 +129,23 @@ def export_pdf(report: dict, prediction: dict, risk_analysis: dict, raw_text: st
     doc.build(story)
     buffer.seek(0)
     return buffer.read()
+def generate_report_pdf(payload: dict, output_path: str):
+    """
+    Wrapper for app.py to generate and save a PDF from a payload.
+    """
+    # Create mock/minimal data structures if missing for the PDF
+    report = payload.get("report_data", {})
+    prediction = {
+        "label": payload.get("prediction", "Unknown"),
+        "confidence": payload.get("confidence", 0),
+        "confidence_tier": "N/A",
+        "real_probability": 0,
+        "fake_probability": 0,
+        "word_count": 0
+    }
+    risk_analysis = {"risk_score": 0}
+    raw_text = "Analysis report for news article."
+
+    pdf_bytes = export_pdf(report, prediction, risk_analysis, raw_text)
+    with open(output_path, "wb") as f:
+        f.write(pdf_bytes)
