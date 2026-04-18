@@ -54,29 +54,29 @@ def analyze_risk(raw_text: str) -> dict:
 
     risk_factors = []
     if clickbait_hits > 0:
-        risk_factors.append(f"Clickbait language detected ({clickbait_hits} pattern(s))")
+        risk_factors.append("[HEADLINE] Sensationalized phrasing detected. This pattern is often used to manipulate reader emotions rather than provide balanced facts.")
     if emotional_hits >= 3:
-        risk_factors.append(f"High emotional language ({emotional_hits} trigger words)")
+        risk_factors.append("[TONE] Highly emotional or biased language detected. This may indicate an attempt to influence opinion rather than report objectively.")
     if caps_ratio > 0.1:
-        risk_factors.append(f"Excessive ALL-CAPS usage ({caps_ratio:.0%} of words)")
+        risk_factors.append("[FORMAT] Unusual use of capitalized words. Professional news typically follows standard sentence casing for credibility.")
     if punct_density > 2:
-        risk_factors.append("Excessive punctuation (! / ?)")
+        risk_factors.append("[FORMAT] Excessive punctuation usage. High density of '!' or '?' is rarely found in authoritative journalistic reporting.")
     if credibility_hits == 0:
-        risk_factors.append("No credibility markers (sources, data, attribution)")
+        risk_factors.append("[SOURCES] No citations to verified news agencies found. Reference to primary sources (Reuters, AP, PTI) is a key pillar of credible news.")
 
     credibility_indicators = []
     if credibility_hits > 0:
-        credibility_indicators.append(f"Contains {credibility_hits} credibility marker(s)")
+        credibility_indicators.append(f"[SOURCES] Professional Citations: The article references {credibility_hits} recognized news/data sources.")
     if clickbait_hits == 0:
-        credibility_indicators.append("No clickbait language detected")
+        credibility_indicators.append("[HEADLINE] Factual Phrasing: The headline avoids sensational traps and follows objective reporting standards.")
     if emotional_hits < 2:
-        credibility_indicators.append("Low emotional language")
+        credibility_indicators.append("[TONE] Neutral Reporting: The language is balanced and focuses on informational content rather than bias.")
     if caps_ratio <= 0.05:
-        credibility_indicators.append("Normal capitalization pattern")
+        credibility_indicators.append("[FORMAT] Standard Presentation: The article follows professional capitalization and formatting conventions.")
 
     # Risk score 0–100
-    risk_score = min(100, clickbait_hits * 20 + emotional_hits * 5 + int(caps_ratio * 100) + int(punct_density * 5))
-    risk_score = max(0, risk_score - credibility_hits * 10)
+    risk_score = min(100, clickbait_hits * 25 + emotional_hits * 5 + int(caps_ratio * 120) + int(punct_density * 8))
+    risk_score = max(0, risk_score - credibility_hits * 12)
 
     return {
         "risk_factors": risk_factors,
