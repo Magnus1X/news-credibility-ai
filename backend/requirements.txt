@@ -1,23 +1,36 @@
+# ── Core ML (Milestone 1) ──────────────────────────────────────────────────
 numpy
 pandas
 scikit-learn
 nltk
-streamlit
-pdfplumber
 joblib
 matplotlib
 seaborn
 
-# LLM / Agentic AI (Milestone 2)
-transformers
-torch
-accelerate
-huggingface-hub
-
-# API Dependencies
+# ── API ────────────────────────────────────────────────────────────────────
 fastapi
 uvicorn
-newspaper3k
-requests
 pydantic
+requests
+python-dotenv
+
+# ── Scraping ───────────────────────────────────────────────────────────────
+newspaper3k
 lxml_html_clean
+beautifulsoup4
+requests
+
+# ── RAG / Vector DB (Milestone 2) ─────────────────────────────────────────
+faiss-cpu
+sentence-transformers
+
+# ── LLM (Milestone 2) ─────────────────────────────────────────────────────
+# HuggingFace Inference API — no local GPU needed
+huggingface-hub
+
+# ── PDF Export (Milestone 2) ───────────────────────────────────────────────
+reportlab
+
+# ── Notebooks ─────────────────────────────────────────────────────────────
+jupyter
+ipykernel

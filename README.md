@@ -244,6 +244,146 @@ Built as a group project — contributions span data science, ML engineering, ba
 
 ---
 
+## 🤖 Milestone 2 — Agentic AI Misinformation Monitor
+
+Builds on Milestone 1 to add a full agentic reasoning pipeline with RAG and LLM report generation.
+
+### New Features
+- 🔗 **5-step agentic pipeline** — explicit state between every step
+- 🗄️ **FAISS RAG** — semantic retrieval over a fact-check knowledge base
+- 🧠 **LLM report** — Mistral-7B via HuggingFace free-tier API
+- 🛡️ **Zero-hallucination fallback** — rule-based report when LLM unavailable
+- 📄 **PDF export** — downloadable credibility report
+
+### Milestone 2 Architecture
+
+```
+Input (text / URL)
+  ↓
+[Step 1] predictor.py      → Milestone 1 model: label + confidence + top TF-IDF features
+  ↓
+[Step 2] risk_analyzer.py  → Heuristic signals: clickbait, emotional language, caps ratio
+  ↓
+[Step 3] retriever.py      → FAISS semantic search → top-3 KB documents
+  ↓
+[Step 4] Uncertainty eval  → Confidence tier check, word count validation
+  ↓
+[Step 5] llm_agent.py      → HF API (Mistral-7B) or rule-based fallback
+  ↓
+Structured JSON Report + optional PDF
+```
+
+### New Project Structure
+
+```
+backend/
+├── agent_app.py            # Milestone 2 FastAPI app (port 8001)
+├── agent/
+│   ├── predictor.py        # Wraps Milestone 1 model
+│   ├── risk_analyzer.py    # Heuristic risk signals
+│   ├── retriever.py        # FAISS RAG retrieval
+│   ├── llm_agent.py        # 5-step agent + LLM report
+│   └── pdf_exporter.py     # PDF generation (reportlab)
+└── .env.example            # HF_TOKEN config
+notebook/
+├── 05_rag_setup.ipynb      # FAISS index build + retrieval demo
+├── 06_agent_pipeline.ipynb # Full pipeline step-by-step
+└── 07_llm_prompt_testing.ipynb  # Prompt engineering + hallucination reduction
+```
+
+### Running Milestone 2
+
+```bash
+cd backend
+
+# 1. Install new dependencies
+pip install -r requirements.txt
+
+# 2. (Optional) Set HuggingFace token for LLM reports
+cp .env.example .env
+# Edit .env and add your free token from https://huggingface.co/settings/tokens
+
+# 3. Build FAISS index (run once)
+python -c "from agent.retriever import build_index; build_index()"
+
+# 4. Start Milestone 2 API (port 8001)
+uvicorn agent_app:app --port 8001 --reload
+```
+
+### Milestone 2 API Reference
+
+#### `POST /analyze`
+
+Full agentic credibility analysis.
+
+**Request:**
+```json
+{ "text": "Article text here...", "url": "" }
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "prediction": {
+    "label": "Fake News",
+    "confidence": 91.2,
+    "confidence_tier": "high",
+    "real_probability": 8.8,
+    "fake_probability": 91.2,
+    "top_features": ["breaking", "cover", "secret", "exposed"]
+  },
+  "risk_analysis": {
+    "risk_score": 75,
+    "risk_factors": ["Clickbait language detected (3 patterns)", "High emotional language"],
+    "credibility_indicators": []
+  },
+  "retrieved_sources": [
+    { "title": "Conspiracy theory language patterns", "source": "First Draft News", "relevance": 0.87 }
+  ],
+  "report": {
+    "summary": "The ML model classified this article as Fake News with 91.2% high confidence...",
+    "credibility_indicators": ["No credibility indicators detected"],
+    "risk_factors": ["Clickbait language detected", "Conspiracy framing"],
+    "cross_source_verification": "Retrieved context confirms conspiracy language patterns match known misinformation.",
+    "confidence_assessment": "91.2% confidence is high-tier. The model is reliable at this level.",
+    "sources": ["First Draft News", "Snopes Methodology"],
+    "disclaimer": "This analysis is AI-generated and should not be the sole basis for determining truth."
+  }
+}
+```
+
+#### `POST /analyze/pdf`
+
+Same pipeline — returns a downloadable PDF report.
+
+#### `GET /agent/health`
+
+```json
+{ "status": "healthy", "milestone": 2, "version": "2.0.0" }
+```
+
+### Milestone 2 Notebooks
+
+| Notebook | Description |
+|---|---|
+| `05_rag_setup.ipynb` | Builds FAISS index, embedding visualization, retrieval demo |
+| `06_agent_pipeline.ipynb` | Full 5-step pipeline demo with fake/real article comparison |
+| `07_llm_prompt_testing.ipynb` | Prompt experiments, temperature ablation, hallucination reduction |
+
+### Prompt Engineering — Anti-Hallucination Design
+
+| Technique | Effect |
+|---|---|
+| System prompt rules (`NEVER fabricate`) | Prevents invented sources/quotes |
+| `"Insufficient evidence"` fallback | Prevents confident wrong answers |
+| Structured JSON output schema | Prevents free-form narrative invention |
+| Temperature = 0.1 | Minimizes randomness |
+| All facts injected into prompt | LLM can only use provided data |
+| Rule-based fallback | Zero hallucination guarantee |
+
+---
+
 ## 📄 License
 
 This project is for educational purposes.

@@ -1,0 +1,72 @@
+[
+  {
+    "id": "kb_001",
+    "title": "How to identify clickbait headlines",
+    "content": "Clickbait headlines use emotional triggers, ALL-CAPS, and vague promises. Legitimate news uses specific, factual language with named sources.",
+    "source": "Media Literacy Guide",
+    "category": "media_literacy"
+  },
+  {
+    "id": "kb_002",
+    "title": "Reuters fact-checking methodology",
+    "content": "Reuters fact-checks verify claims against primary sources, official statements, and peer-reviewed research. Unverified claims are labeled as such.",
+    "source": "Reuters Fact Check",
+    "category": "fact_checking"
+  },
+  {
+    "id": "kb_003",
+    "title": "Signs of misinformation in political news",
+    "content": "Political misinformation often lacks named sources, uses extreme emotional language, misquotes officials, and spreads through social media without verification.",
+    "source": "PolitiFact Methodology",
+    "category": "political_news"
+  },
+  {
+    "id": "kb_004",
+    "title": "Credible news source characteristics",
+    "content": "Credible sources cite named officials, provide data with context, include opposing viewpoints, have editorial standards, and issue corrections when wrong.",
+    "source": "AP Stylebook",
+    "category": "credibility"
+  },
+  {
+    "id": "kb_005",
+    "title": "Satire vs. fake news distinction",
+    "content": "Satire is clearly labeled and uses exaggeration for commentary. Fake news presents false information as factual reporting without satirical intent.",
+    "source": "Snopes Methodology",
+    "category": "media_literacy"
+  },
+  {
+    "id": "kb_006",
+    "title": "Conspiracy theory language patterns",
+    "content": "Conspiracy theories use phrases like 'they don't want you to know', 'cover-up', 'deep state', and claim suppressed evidence without verifiable sources.",
+    "source": "First Draft News",
+    "category": "misinformation"
+  },
+  {
+    "id": "kb_007",
+    "title": "Scientific misinformation indicators",
+    "content": "Scientific misinformation misrepresents study findings, cherry-picks data, cites retracted papers, and uses anecdotal evidence instead of peer-reviewed research.",
+    "source": "FullFact.org",
+    "category": "science"
+  },
+  {
+    "id": "kb_008",
+    "title": "Election misinformation patterns",
+    "content": "Election misinformation includes false claims about voting procedures, fabricated candidate statements, and unverified fraud allegations without evidence.",
+    "source": "Election Integrity Partnership",
+    "category": "political_news"
+  },
+  {
+    "id": "kb_009",
+    "title": "Health misinformation warning signs",
+    "content": "Health misinformation promotes unproven cures, exaggerates risks, contradicts medical consensus, and often sells products alongside false claims.",
+    "source": "WHO Infodemic Management",
+    "category": "health"
+  },
+  {
+    "id": "kb_010",
+    "title": "Verification checklist for news articles",
+    "content": "Verify: (1) Is the source named? (2) Can the claim be independently confirmed? (3) Is the headline consistent with the body? (4) Is the date current? (5) Are images authentic?",
+    "source": "IFCN Code of Principles",
+    "category": "fact_checking"
+  }
+]

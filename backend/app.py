@@ -99,8 +99,21 @@ def predict_news(request: NewsRequest):
             source = "url"
 
         elif user_text:
-            raw_text = user_text
-            source = "text"
+            # Auto-detect URL embedded inside pasted text
+            import re as _re
+            url_match = _re.search(r'https?://[^\s]+', user_text)
+            if url_match:
+                embedded_url = url_match.group(0).rstrip(')')
+                extracted = extract_text_from_url(embedded_url)
+                if extracted and len(extracted.split()) >= 80:
+                    raw_text = extracted
+                    source = "url"
+                else:
+                    raw_text = user_text
+                    source = "text"
+            else:
+                raw_text = user_text
+                source = "text"
 
         else:
             raise HTTPException(
@@ -140,7 +153,6 @@ def predict_news(request: NewsRequest):
         probabilities = model.predict_proba(vector)[0]
         confidence = float(np.max(probabilities))
 
-        # Debug logs (safe now)
         print("Raw prediction:", prediction)
         print("Probabilities:", probabilities)
         print("Confidence:", confidence)
@@ -152,19 +164,43 @@ def predict_news(request: NewsRequest):
             0: "Real News",
             1: "Fake News"
         }
-
         predicted_label = label_map.get(int(prediction), str(prediction))
+
+        # ---------------------------
+        # Step 7: Uncertain check (model confidence + heuristic override)
+        # ---------------------------
+        from agent.risk_analyzer import analyze_risk
+        risk = analyze_risk(raw_text)
+        credibility_hits = risk.get("credibility_hits", 0)
+        risk_score = risk.get("risk_score", 0)
+        uncertain = confidence < 0.80
+        # Override: if model says Fake but heuristics show credible content → uncertain
+        if predicted_label == "Fake News" and credibility_hits >= 2 and risk_score <= 20:
+            uncertain = True
 
         # ---------------------------
         # Step 7: Response (Frontend uses this)
         # ---------------------------
+        word_count = len(raw_text.split())
+        if word_count < 80:
+            message = (
+                f"⚠️ Short input ({word_count} words). "
+                "This model was trained on full-length news articles (typically 200+ words). "
+                "Results for short text may be unreliable — paste the full article for best accuracy."
+            )
+        else:
+            message = "Credibility analysis completed successfully."
+
         return {
             "status": "success",
             "prediction": predicted_label,
             "confidence_score": round(confidence * 100, 2),
             "input_source": source,
             "text_length": len(raw_text),
-            "message": "Credibility analysis completed successfully."
+            "word_count": word_count,
+            "reliable": word_count >= 80,
+            "uncertain": uncertain,
+            "message": message
         }
 
     except HTTPException:
