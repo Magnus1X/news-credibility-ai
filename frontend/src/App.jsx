@@ -8,7 +8,7 @@ import {
 import './index.css';
 
 const API_M1 = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-const API_M2 = import.meta.env.VITE_AGENT_API_URL || 'http://127.0.0.1:8001';
+const API_M2 = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 const STEPS_M1 = [
   'Analyzing text input...',
@@ -26,7 +26,6 @@ const STEPS_M2 = [
 ];
 
 function resolveVerdict(label, uncertain) {
-  if (uncertain) return { display: 'Uncertain', cls: 'uncertain' };
   if (label === 'Real News') return { display: 'Real News', cls: 'real' };
   return { display: 'Fake News', cls: 'fake' };
 }
@@ -142,19 +141,26 @@ export default function App() {
   };
 
   const handleDownloadPdf = async () => {
+    if (!result) return;
     setPdfLoading(true);
     try {
-      const isUrl = inputValue.trim().startsWith('http');
-      const payload = isUrl ? { url: inputValue.trim() } : { text: inputValue.trim() };
+      const payload = {
+        title: `Credibility Report: ${result.prediction.label}`,
+        report_data: result.report,
+        prediction: result.prediction.label,
+        confidence: result.prediction.confidence
+      };
+      
       const response = await axios.post(`${API_M2}/analyze/pdf`, payload, { responseType: 'blob' });
       const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = 'credibility_report.pdf';
+      a.download = `News_Credibility_Report_${result.prediction.label.replace(/\s+/g, '_')}.pdf`;
       a.click();
       window.URL.revokeObjectURL(blobUrl);
-    } catch {
-      setError('PDF generation failed. Make sure the Milestone 2 server is running on port 8001.');
+    } catch (err) {
+      console.error('PDF Error:', err);
+      setError('PDF generation failed. Checking backend connection on port 8000...');
     } finally {
       setPdfLoading(false);
     }
@@ -360,6 +366,23 @@ export default function App() {
               <span className="meta-chip">Words <b>{result.word_count}</b></span>
               <span className="meta-chip">Steps <b>{result.pipeline_steps.length}</b></span>
               <span className="meta-chip">Engine <b>{result.used_llm ? 'Mistral-7B' : 'Rule-based'}</b></span>
+            </div>
+          </Section>
+
+          <Section icon={ShieldCheck} title="Verification Checklist (Recommended Action)">
+            <div className="checklist-container">
+              <div className="check-item">
+                <input type="checkbox" readOnly checked={result.prediction.label === 'Real News'} />
+                <span><b>Cross-Reference:</b> Search for this headline on Google News. Does this story appear on at least two other major outlets?</span>
+              </div>
+              <div className="check-item">
+                <input type="checkbox" readOnly checked={result.prediction.label === 'Real News'} />
+                <span><b>Source Check:</b> Visit the homepage of the source mentioned. Does it have an "About Us" page and an editorial standard?</span>
+              </div>
+              <div className="check-item">
+                <input type="checkbox" readOnly />
+                <span><b>Author Verification:</b> Look up the writer/reporter. Are they a known journalist or expert in this field?</span>
+              </div>
             </div>
           </Section>
 
