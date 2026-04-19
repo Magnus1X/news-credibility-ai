@@ -10,7 +10,7 @@ import re
 import requests
 from datetime import datetime
 
-HF_API_URL = "https://api-inference.huggingface.co/models/NousResearch/Hermes-3-Llama-3.1-8B"
+HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 
 SYSTEM_PROMPT = """You are a professional fact-checking analyst. Your job is to produce a structured credibility report.
@@ -73,14 +73,17 @@ def _call_hf_api(prompt: str):
                 "max_new_tokens": 800,
                 "temperature": 0.1,
                 "return_full_text": False,
-                "stop": ["```", "---"],
             },
+            "options": {"wait_for_model": False}  # Don't wait if loading
         }
-        resp = requests.post(HF_API_URL, headers=headers, json=payload, timeout=30)
+        resp = requests.post(HF_API_URL, headers=headers, json=payload, timeout=12)
+        
         if resp.status_code == 200:
             result = resp.json()
             if isinstance(result, list) and result:
                 return result[0].get("generated_text", "")
+        elif resp.status_code == 503:
+            print("HF API: Model is still loading. Falling back.")
     except Exception as e:
         print(f"HF API error: {e}")
     return None
