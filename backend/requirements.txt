@@ -1,11 +1,9 @@
-# ── Core ML (Milestone 1) ──────────────────────────────────────────────────
+# ── Core ML ────────────────────────────────────────────────────────────────
 numpy
 pandas
 scikit-learn
 nltk
 joblib
-matplotlib
-seaborn
 
 # ── API ────────────────────────────────────────────────────────────────────
 fastapi
@@ -18,19 +16,13 @@ python-dotenv
 newspaper3k
 lxml_html_clean
 beautifulsoup4
-requests
 
-# ── RAG / Vector DB (Milestone 2) ─────────────────────────────────────────
+# ── RAG / Vector DB ───────────────────────────────────────────────────────
 faiss-cpu
 sentence-transformers
 
-# ── LLM (Milestone 2) ─────────────────────────────────────────────────────
-# HuggingFace Inference API — no local GPU needed
+# ── LLM ───────────────────────────────────────────────────────────────────
 huggingface-hub
 
-# ── PDF Export (Milestone 2) ───────────────────────────────────────────────
+# ── PDF Export ─────────────────────────────────────────────────────────────
 reportlab
-
-# ── Notebooks ─────────────────────────────────────────────────────────────
-jupyter
-ipykernel

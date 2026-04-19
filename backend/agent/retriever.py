@@ -86,11 +86,17 @@ KNOWLEDGE_BASE = [
 ]
 
 
+_encoder_cache = None
+
 def _get_encoder():
-    """Lazy-load sentence transformer to avoid startup cost."""
+    """Lazy-load sentence transformer ONCE and cache for all future calls."""
+    global _encoder_cache
+    if _encoder_cache is not None:
+        return _encoder_cache
     try:
         from sentence_transformers import SentenceTransformer
-        return SentenceTransformer("all-MiniLM-L6-v2")
+        _encoder_cache = SentenceTransformer("all-MiniLM-L6-v2")
+        return _encoder_cache
     except ImportError:
         return None
 
