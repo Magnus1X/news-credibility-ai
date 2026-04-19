@@ -47,7 +47,7 @@ app.add_middleware(
         "http://localhost:5175",
         "http://127.0.0.1:5175",
         "https://news-credibility-ai.vercel.app",
-        "https://*.vercel.app",
+        "https://news-credibility-ai-yymk.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
